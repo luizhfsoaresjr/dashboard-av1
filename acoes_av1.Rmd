@@ -1,0 +1,121 @@
+---
+title: "DASHBOARD AV1"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyquant)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(DT)
+
+prices <- read.csv("C:/Users/Dell/OneDrive/Documents/dashboard/prices.csv") %>% 
+  mutate(date = as.Date(date))
+
+tabela_periodo <- data.frame(
+  periodo = c("1M", "6M", "1A", "10A"),
+  dias = c(30, 180, 365, 3650)
+)
+
+colours = c(
+  "HAPV3" = "green", "PETR3" = "blue", "ITUB4" = "red", "ABEV3" = "grey", "BBDC3" = "pink", 
+  "WEGE3" = "orange", "VALE3" = "brown", "RDOR3" = "purple", "BBAS3" = "cyan", "ITSA4" = "yellow"
+)
+
+```
+
+## Column {.sidebar}
+
+```{r}
+selectInput(
+  "acao", label = "Escolha sua ação",
+  choices = c(
+    "HAPV3", "PETR3", "ITUB4", "ABEV3", "BBDC3", 
+    "WEGE3", "VALE3", "RDOR3", "BBAS3", "ITSA4"
+  )
+)
+
+selectInput(
+  "periodo", label = "Escolha o período",
+  choices = c("1M", "6M", "1A", "10A")
+)
+
+```
+
+## Row {data-width=500}
+
+----------------------------------------------------------------------------
+
+### TENDÊNCIA
+
+```{r}
+renderPlotly({
+  periodo <- Sys.Date() - filter(tabela_periodo, periodo == input$periodo)$dias
+  
+  prices %>% 
+    filter(date >=periodo, symbol == input$acao) %>% 
+    ggplot() +
+    aes(x= date, y = adjusted, color = symbol) +
+    geom_line() +
+    scale_color_manual(values = colours) +
+    labs(x = "", y = "Cotacao") +
+    ggtitle(label = input$acao) +
+    theme(
+      panel.background = element_blank(),
+      plot.title = element_text(size=22),
+      legend.position = "none"
+    )
+})
+```
+
+### TODAS AS TENDÊNCIAS
+
+```{r}
+renderPlotly({
+  periodo <- Sys.Date() - filter(tabela_periodo, periodo == input$periodo)$dias
+  
+  prices %>% 
+    filter(date >=periodo) %>% 
+    ggplot() +
+    aes(x= date, y = adjusted, color = symbol) +
+    geom_line(size = 1.1) +
+    scale_color_manual(values = colours) +
+    labs(x = "", y = "Cotacao", color = "Ação") +
+    theme(panel.background = element_blank())
+})
+```
+
+## Row {data-width=500}
+
+----------------------------------------------------------------------------
+
+### COTAÇÕES
+
+```{r}
+renderDataTable({
+  periodo <- Sys.Date() - filter(tabela_periodo, periodo == input$periodo)$dias
+  
+  prices %>% 
+    filter(date >=periodo, symbol == input$acao) %>% 
+    mutate(across(where(is.double), round, digits = 2)) %>% 
+    arrange(desc(date)) %>% 
+    rename(
+      Ação=symbol,
+      Data=date,
+      Abertura=open,
+      Máximo=high,
+      Mínimo=low,
+      Fechamento=close,
+      Volume=volume,
+      Ajustado=adjusted
+    ) %>% 
+    datatable(rownames = FALSE)
+})
+
+```
